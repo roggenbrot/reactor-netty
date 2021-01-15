@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-rootProject.name = 'reactor-netty'
-include 'reactor-netty-core'
-include 'reactor-netty-http'
-include 'reactor-netty-http-brave'
-include 'reactor-netty-quic'
-include 'reactor-netty-examples'
-include 'reactor-netty'
+
+/**
+ * Components for writing QUIC-based clients and servers using Reactor abstractions.
+ */
+@NonNullApi
+package reactor.netty.quic;
+
+import reactor.util.annotation.NonNullApi;

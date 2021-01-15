@@ -69,6 +69,18 @@ public class Metrics {
 	public static final String UDP_CLIENT_PREFIX = "reactor.netty.udp.client";
 
 	/**
+	 * Name prefix that will be used for the QUIC server's metrics
+	 * registered in Micrometer's global registry
+	 */
+	public static final String QUIC_SERVER_PREFIX = "reactor.netty.quic.server";
+
+	/**
+	 * Name prefix that will be used for the QUIC client's metrics
+	 * registered in Micrometer's global registry
+	 */
+	public static final String QUIC_CLIENT_PREFIX = "reactor.netty.quic.client";
+
+	/**
 	 * Name prefix that will be used for the PooledConnectionProvider's metrics
 	 * registered in Micrometer's global registry
 	 */
