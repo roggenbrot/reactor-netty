@@ -23,7 +23,6 @@ import reactor.netty.Connection;
 import reactor.netty.ConnectionObserver;
 import reactor.netty.NettyInbound;
 import reactor.netty.NettyOutbound;
-import reactor.netty.channel.ChannelOperations;
 import reactor.netty.transport.AddressUtils;
 import reactor.util.Logger;
 import reactor.util.Loggers;
@@ -194,7 +193,7 @@ public abstract class QuicServer extends QuicTransport<QuicServer, QuicServerCon
 						log.debug("Handler is being applied: {}", streamHandler);
 					}
 
-					ChannelOperations<?, ?> ops = (ChannelOperations<?, ?>) connection;
+					QuicStreamOperations ops = (QuicStreamOperations) connection;
 					Mono.fromDirect(streamHandler.apply(ops, ops))
 					    .subscribe(ops.disposeSubscriber());
 				}

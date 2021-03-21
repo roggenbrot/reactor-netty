@@ -205,7 +205,7 @@ public final class QuicServerConfig extends QuicTransportConfig<QuicServerConfig
 
 			quicServerCodecBuilder
 					.handler(quicChannelInitializer)
-					.streamHandler(QuicTransportConfig.streamChannelInitializer(loggingHandler, streamObserver));
+					.streamHandler(QuicTransportConfig.streamChannelInitializer(loggingHandler, streamObserver, true));
 
 			if (loggingHandler != null) {
 				channel.pipeline().addLast(loggingHandler);

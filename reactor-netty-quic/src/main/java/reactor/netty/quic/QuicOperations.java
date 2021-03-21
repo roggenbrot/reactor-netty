@@ -29,7 +29,6 @@ import reactor.netty.Connection;
 import reactor.netty.ConnectionObserver;
 import reactor.netty.NettyInbound;
 import reactor.netty.NettyOutbound;
-import reactor.netty.channel.ChannelOperations;
 import reactor.util.Logger;
 import reactor.util.Loggers;
 import reactor.util.context.Context;
@@ -80,7 +79,7 @@ final class QuicOperations implements QuicConnection {
 			QuicStreamChannelBootstrap bootstrap = quicChannel.newStreamBootstrap();
 			bootstrap.type(streamType == StreamType.BIDIRECTIONAL ? QuicStreamType.BIDIRECTIONAL : QuicStreamType.UNIDIRECTIONAL)
 			         .handler(QuicTransportConfig.streamChannelInitializer(loggingHandler,
-			                 streamListener.then(new QuicStreamChannelObserver(sink, streamHandler))));
+			                 streamListener.then(new QuicStreamChannelObserver(sink, streamHandler)), false));
 
 			setAttributes(bootstrap, streamAttrs);
 			setChannelOptions(bootstrap, streamOptions);
@@ -133,7 +132,7 @@ final class QuicOperations implements QuicConnection {
 						log.debug("Handler is being applied: {}", streamHandler);
 					}
 
-					ChannelOperations<?, ?> ops = (ChannelOperations<?, ?>) connection;
+					QuicStreamOperations ops = (QuicStreamOperations) connection;
 					Mono.fromDirect(streamHandler.apply(ops, ops))
 					    .subscribe(ops.disposeSubscriber());
 				}

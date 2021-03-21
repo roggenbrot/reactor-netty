@@ -350,8 +350,8 @@ abstract class QuicTransportConfig<CONF extends TransportConfig> extends Transpo
 	protected abstract ChannelInitializer<Channel> parentChannelInitializer();
 
 	static ChannelInitializer<QuicStreamChannel> streamChannelInitializer(
-			ChannelHandler loggingHandler, ConnectionObserver streamListener) {
-		return new QuicStreamChannelInitializer(loggingHandler, streamListener);
+			ChannelHandler loggingHandler, ConnectionObserver streamListener, boolean inbound) {
+		return new QuicStreamChannelInitializer(loggingHandler, streamListener, inbound);
 	}
 
 	static final Logger log = Loggers.getLogger(QuicTransportConfig.class);
@@ -439,10 +439,12 @@ abstract class QuicTransportConfig<CONF extends TransportConfig> extends Transpo
 
 		final ChannelHandler     loggingHandler;
 		final ConnectionObserver streamListener;
+		final boolean            inbound;
 
-		QuicStreamChannelInitializer(ChannelHandler loggingHandler, ConnectionObserver streamListener) {
+		QuicStreamChannelInitializer(ChannelHandler loggingHandler, ConnectionObserver streamListener, boolean inbound) {
 			this.loggingHandler = loggingHandler;
 			this.streamListener = streamListener;
+			this.inbound = inbound;
 		}
 
 		@Override
@@ -454,8 +456,14 @@ abstract class QuicTransportConfig<CONF extends TransportConfig> extends Transpo
 			if (loggingHandler != null) {
 				ch.pipeline().addLast(loggingHandler);
 			}
-
-			ChannelOperations.addReactiveBridge(ch, (conn, observer, msg) -> new ChannelOperations<>(conn, observer), streamListener);
+			if (inbound) {
+				ch.pipeline().addLast(new QuicInboundStreamTrafficHandler());
+				ChannelOperations.addReactiveBridge(ch, (conn, observer, msg) -> new QuicInboundStreamOperations(conn, observer), streamListener);
+			}
+			else {
+				ch.pipeline().addLast(new QuicOutboundStreamTrafficHandler());
+				ChannelOperations.addReactiveBridge(ch, (conn, observer, msg) -> new QuicOutboundStreamOperations(conn, observer), streamListener);
+			}
 		}
 	}
 
