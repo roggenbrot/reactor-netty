@@ -16,6 +16,13 @@
 
 package reactor.netty.http.server;
 
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+import reactor.core.Exceptions;
+import reactor.core.publisher.Mono;
+import reactor.util.annotation.Nullable;
+
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,11 +36,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
-
-import org.reactivestreams.Publisher;
-import reactor.core.Exceptions;
-import reactor.core.publisher.Mono;
-import reactor.util.annotation.Nullable;
 
 /**
  * @author Stephane Maldini
@@ -49,13 +51,13 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 
 	@Override
 	public HttpServerRoutes directory(String uri, Path directory,
-			@Nullable Function<HttpServerResponse, HttpServerResponse> interceptor) {
+	                                  @Nullable Function<HttpServerResponse, HttpServerResponse> interceptor) {
 		Objects.requireNonNull(directory, "directory");
 		return route(HttpPredicate.prefix(uri), (req, resp) -> {
 
 			String prefix = URI.create(req.uri())
-			                   .getPath()
-			                   .replaceFirst(uri, "");
+					.getPath()
+					.replaceFirst(uri, "");
 
 			if (!prefix.isEmpty() && prefix.charAt(0) == '/') {
 				prefix = prefix.substring(1);
@@ -66,7 +68,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 
 				if (interceptor != null) {
 					return interceptor.apply(resp)
-					                  .sendFile(p);
+							.sendFile(p);
 				}
 				return resp.sendFile(p);
 			}
@@ -75,30 +77,76 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		});
 	}
 
-	@Override
-	public HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
-			BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
-		Objects.requireNonNull(condition, "condition");
-		Objects.requireNonNull(handler, "handler");
 
+	/**
+	 * Creates and adds a new route for predicate and a I/O handler that if the predicate is matched is invoked
+	 *
+	 * @param condition  Predicate applied on each inbound request
+	 * @param handler I/O handler to invoke on match of predicate
+	 * @return
+	 */
+	private HttpRouteHandler addRoute(Predicate<? super HttpServerRequest> condition,
+	                                     BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+
+		final HttpRouteHandler httpRouteHandler;
 		if (condition instanceof HttpPredicate) {
-			HttpRouteHandler httpRouteHandler = new HttpRouteHandler(condition,
+			httpRouteHandler = new HttpRouteHandler(condition,
 					handler,
 					(HttpPredicate) condition, ((HttpPredicate) condition).uri);
-
-			handlers.add(httpRouteHandler);
-			initialOrderHandlers.add(httpRouteHandler);
-
 		}
 		else {
-			HttpRouteHandler httpRouteHandler = new HttpRouteHandler(condition, handler, null, null);
-			handlers.add(httpRouteHandler);
-			initialOrderHandlers.add(httpRouteHandler);
+			httpRouteHandler = new HttpRouteHandler(condition, handler, null, null);
 		}
+
+		handlers.add(httpRouteHandler);
+		initialOrderHandlers.add(httpRouteHandler);
 
 		if (this.comparator != null) {
 			handlers.sort(this.comparator);
 		}
+
+		return httpRouteHandler;
+	}
+
+	public void route(Publisher<HttpServerRoute> publisher) {
+		publisher.subscribe(new Subscriber<HttpServerRoute>() {
+
+			private final List<HttpRouteHandler> publisherHandlers = new CopyOnWriteArrayList<>();
+
+			@Override
+			public void onSubscribe(Subscription subscription) {
+				subscription.request(Integer.MAX_VALUE);
+			}
+
+			@Override
+			public void onNext(HttpServerRoute httpServerRoute) {
+				publisherHandlers.add(addRoute(httpServerRoute.condition(), httpServerRoute.handler()));
+			}
+
+			@Override
+			public void onError(Throwable t) {
+
+				// TODO: Remove all handlers added ??????
+
+			}
+
+			@Override
+			public void onComplete() {
+
+				// Remove all handler added by the publisher
+				initialOrderHandlers.removeAll(publisherHandlers);
+				handlers.removeAll(publisherHandlers);
+			}
+		});
+	}
+
+	@Override
+	public HttpServerRoutes route(Predicate<? super HttpServerRequest> condition,
+	                              BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler) {
+		Objects.requireNonNull(condition, "condition");
+		Objects.requireNonNull(handler, "handler");
+
+		addRoute(condition,handler);
 
 		return this;
 	}
@@ -151,9 +199,9 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 		final String path;
 
 		HttpRouteHandler(Predicate<? super HttpServerRequest> condition,
-				BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
-				@Nullable Function<? super String, Map<String, String>> resolver,
-				@Nullable String path) {
+		                 BiFunction<? super HttpServerRequest, ? super HttpServerResponse, ? extends Publisher<Void>> handler,
+		                 @Nullable Function<? super String, Map<String, String>> resolver,
+		                 @Nullable String path) {
 			this.condition = Objects.requireNonNull(condition, "condition");
 			this.handler = Objects.requireNonNull(handler, "handler");
 			this.resolver = resolver;
@@ -162,7 +210,7 @@ final class DefaultHttpServerRoutes implements HttpServerRoutes {
 
 		@Override
 		public Publisher<Void> apply(HttpServerRequest request,
-				HttpServerResponse response) {
+		                             HttpServerResponse response) {
 			return handler.apply(request.paramsResolver(resolver), response);
 		}
 
